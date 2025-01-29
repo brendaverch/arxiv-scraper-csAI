@@ -16,17 +16,21 @@ def get_html(url: str) -> str:
         print(f"Erro ao acessar {url}: {e}")
         return ""
 
-def parse_abstract_page(article_url: str) -> str:
-    """ Captura o resumo de um artigo a partir da sua página no ArXiv. """
+def parse_abstract_page(article_id: str) -> str:
+    """ Captura o resumo do artigo a partir da página individual no ArXiv. """
+    article_url = f"{BASE_URL}/html/{article_id}v1"  
     html = get_html(article_url)
+    
     if not html:
         return "Resumo não coletado"
 
     soup = BeautifulSoup(html, "html.parser")
-    abstract_div = soup.find("blockquote", class_="abstract")
+    abstract_div = soup.find("div", class_="ltx_abstract")
+    
     if abstract_div:
-        abstract_text = abstract_div.get_text(strip=True).replace("Abstract: ", "")
-        return abstract_text
+        abstract_p = abstract_div.find("p", class_="ltx_p")
+        if abstract_p:
+            return abstract_p.get_text(strip=True)  # Captura apenas o texto do resumo
     return "Resumo não coletado"
 
 def parse_list_page(html: str) -> list[dict]:
@@ -34,6 +38,7 @@ def parse_list_page(html: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     papers = []
 
+    # Buscar os artigos na página
     paper_list = soup.find_all("dt")
     for paper_dt in paper_list:
         title_tag = paper_dt.find_next("div", class_="list-title")
@@ -46,18 +51,17 @@ def parse_list_page(html: str) -> list[dict]:
         title = title_tag.get_text(strip=True).replace("Title:", "").strip()
         authors = [a.strip() for a in authors_tag.get_text(strip=True).replace("Authors:", "").split(",")]
         
-        # Captura o link do artigo
+        # Extrai o ID do artigo (formato "2501.17161" do link)
         article_id = link_tag["href"].split("/")[-1]
-        article_url = f"{BASE_URL}/abs/{article_id}"
-
+        
         # Obtém o resumo do artigo
-        abstract = parse_abstract_page(article_url)
+        abstract = parse_abstract_page(article_id)
 
         papers.append({
             "title": title,
             "authors": authors,
             "abstract": abstract,
-            "link": article_url
+            "link": f"{BASE_URL}/html/{article_id}v1"  # Novo link corrigido
         })
 
     return papers
